@@ -19,4 +19,8 @@ class Message
       text: text
     })
   end
+
+  def to_s
+    "#{sender_recipient}: #{text}"
+  end
 end

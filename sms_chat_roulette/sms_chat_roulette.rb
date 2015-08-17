@@ -1,12 +1,15 @@
 require 'byebug'
-require 'socket'
 
+require 'socket'
+require 'logger'
+
+require_relative 'matches'
 require_relative 'message'
 
 HOST = '127.0.0.1'
 PORT = 31337
 
-class SMSOmegle
+class SMSChatRoulette
   attr_reader :matches
   attr_reader :match_queue
 
@@ -14,8 +17,12 @@ class SMSOmegle
 
   STOP_INFORMATION = 'You can always stop the service by sending a "STOP" message.'
 
+  def self.logger
+    @@logger ||= Logger.new(STDOUT)
+  end
+
   def initialize
-    @matches = {}
+    @matches = Matches.new
     @match_queue = []
   end
 
@@ -32,12 +39,12 @@ class SMSOmegle
   end
 
   def handle_incoming_sms(message)
-    puts "Handling incoming message: #{message.inspect}"
+    logger.info "Handling incoming message: #{message}"
 
     if COMMANDS.include? message.text.downcase
       handle_command(message)
     elsif already_matched?(message.sender_recipient)
-      send_sms(match(message.sender_recipient), message.text)
+      forward_message(message)
     else
       unless match_queue.include? message.sender_recipient
         queue_match(message.sender_recipient)
@@ -45,10 +52,16 @@ class SMSOmegle
     end
   end
 
+  def forward_message
+    match = matches.match(message.sender_recipient)
+    logger.info "Forwarding #{message} to #{match}"
+    send_sms(match, message.text)
+  end
+
   def handle_command(message)
     case message.text.downcase
     when 'stop'
-      if already_matched? message.sender_recipient
+      if matches.already_matched? message.sender_recipient
         delete_match(message.sender_recipient)
       else
         match_queue.delete message.sender_recipient
@@ -57,8 +70,7 @@ class SMSOmegle
   end
 
   def delete_match(number)
-    old_match = matches.delete number
-    matches.delete old_match
+    old_match = matches.delete_match(number)
     match_queue << old_match
 
     notify_unsubscribed(number)
@@ -73,14 +85,6 @@ class SMSOmegle
     send_sms(number, "Your match has left the conversation. You are back in the queue. #{STOP_INFORMATION}")
   end
 
-  def already_matched?(number)
-    matches.key? number
-  end
-
-  def match(number)
-    matches[number]
-  end
-
   def queue_match(number)
     match_queue << number
 
@@ -88,6 +92,7 @@ class SMSOmegle
 
     if match_queue.size >= 2
       create_match
+      logger.info "Current matches: #{matches.size}"
     end
   end
 
@@ -95,12 +100,7 @@ class SMSOmegle
     number1 = match_queue.pop
     number2 = match_queue.pop
 
-    initiate_match(number1, number2)
-  end
-
-  def initiate_match(number1, number2)
-    matches[number1] = number2
-    matches[number2] = number1
+    matches.initiate_match(number1, number2)
 
     send_welcome_sms(number1)
     send_welcome_sms(number2)
@@ -112,7 +112,7 @@ class SMSOmegle
 
   def send_sms(recipient, text)
     message = Message.new(recipient, text)
-    puts "Sending: #{message.inspect}"
+    logger.info "Sending: #{message}"
     @socket.puts(message.to_json)
   end
 end
