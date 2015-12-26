@@ -39,8 +39,6 @@ class Matches
   end
 
   def delete_match(number)
-    logger.info "Deleting match between #{number} and #{old_match}"
-
     old_match = nil
 
     pstore.transaction do
@@ -48,6 +46,7 @@ class Matches
       pstore[:matches].delete old_match
     end
 
+    logger.info "Deleted match between #{number} and #{old_match}"
     logger.info "Current matches: #{matches.size}"
 
     old_match
