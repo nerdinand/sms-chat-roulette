@@ -1,17 +1,16 @@
 require 'byebug'
 
+require 'thor'
 require 'socket'
 require 'logger'
 
+require_relative 'config'
+require_relative 'cli'
 require_relative 'matches'
 require_relative 'message'
 
-HOST = '127.0.0.1'
-PORT = 31337
-
 class SMSChatRoulette
-  attr_reader :matches
-  attr_reader :match_queue
+  attr_reader :matches, :match_queue, :host, :port, :socket
 
   COMMANDS = %w(stop)
 
@@ -21,29 +20,31 @@ class SMSChatRoulette
     @@logger ||= Logger.new(STDOUT)
   end
 
-  def initialize
+  def initialize(host, port)
+    @host = host
+    @port = port
     @matches = Matches.new
     @match_queue = []
   end
 
   def connect
-    @socket = TCPSocket.open(HOST, PORT)
+    @socket = TCPSocket.open(host, port)
   end
 
   def run
-    until @socket.eof? do
-      message = @socket.gets
+    until socket.eof? do
+      message = socket.gets
 
       handle_incoming_sms(Message.from_json(message))
     end
   end
 
   def handle_incoming_sms(message)
-    logger.info "Handling incoming message: #{message}"
+    SMSChatRoulette.logger.info "<--     #{message}"
 
     if COMMANDS.include? message.text.downcase
       handle_command(message)
-    elsif already_matched?(message.sender_recipient)
+    elsif matches.already_matched?(message.sender_recipient)
       forward_message(message)
     else
       unless match_queue.include? message.sender_recipient
@@ -54,7 +55,7 @@ class SMSChatRoulette
 
   def forward_message
     match = matches.match(message.sender_recipient)
-    logger.info "Forwarding #{message} to #{match}"
+    SMSChatRoulette.logger.info "Forwarding #{message} to #{match}"
     send_sms(match, message.text)
   end
 
@@ -92,7 +93,7 @@ class SMSChatRoulette
 
     if match_queue.size >= 2
       create_match
-      logger.info "Current matches: #{matches.size}"
+      SMSChatRoulette.logger.info "Current matches: #{matches.size}"
     end
   end
 
@@ -112,7 +113,7 @@ class SMSChatRoulette
 
   def send_sms(recipient, text)
     message = Message.new(recipient, text)
-    logger.info "Sending: #{message}"
-    @socket.puts(message.to_json)
+    SMSChatRoulette.logger.info "    --> #{message}"
+    socket.puts(message.to_json)
   end
 end
