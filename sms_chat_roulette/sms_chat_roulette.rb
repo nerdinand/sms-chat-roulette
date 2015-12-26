@@ -34,7 +34,6 @@ class SMSChatRoulette
   def run
     until socket.eof? do
       message = socket.gets
-
       handle_incoming_sms(Message.from_json(message))
     end
   end
@@ -53,7 +52,7 @@ class SMSChatRoulette
     end
   end
 
-  def forward_message
+  def forward_message(message)
     match = matches.match(message.sender_recipient)
     SMSChatRoulette.logger.info "Forwarding #{message} to #{match}"
     send_sms(match, message.text)
@@ -89,7 +88,7 @@ class SMSChatRoulette
   def queue_match(number)
     match_queue << number
 
-    send_sms(number, "You\'re now in the queue, waiting to be matched to someone. #{STOP_INFORMATION}")
+    send_sms(number, "Welcome to SMS-Chat-Roulette! You're now in the queue, waiting to be matched to someone. #{STOP_INFORMATION}")
 
     if match_queue.size >= 2
       create_match
