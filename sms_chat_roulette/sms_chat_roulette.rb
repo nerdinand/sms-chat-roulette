@@ -21,6 +21,7 @@ class SMSChatRoulette
       STDOUT.sync = true
       logger = Logger.new(STDOUT)
       logger.sev_threshold = Logger::DEBUG
+      logger
     end
   end
 
