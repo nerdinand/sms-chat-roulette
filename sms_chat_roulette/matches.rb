@@ -14,14 +14,14 @@ class Matches
   end
 
   def initiate_match(number1, number2)
-    logger.info "Creating match between #{number1} and #{number2}"
+    logger.debug "Creating match between #{number1} and #{number2}"
 
     pstore.transaction do
       pstore[:matches][number1] = number2
       pstore[:matches][number2] = number1
     end
 
-    logger.info "Current matches: #{matches.size}"
+    logger.debug "Current matches: #{matches.size}"
   end
 
   def logger
@@ -46,8 +46,8 @@ class Matches
       pstore[:matches].delete old_match
     end
 
-    logger.info "Deleted match between #{number} and #{old_match}"
-    logger.info "Current matches: #{matches.size}"
+    logger.debug "Deleted match between #{number} and #{old_match}"
+    logger.debug "Current matches: #{matches.size}"
 
     old_match
   end

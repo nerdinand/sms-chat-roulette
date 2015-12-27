@@ -17,7 +17,11 @@ class SMSChatRoulette
   STOP_INFORMATION = 'You can always stop the service by sending a "STOP" message.'
 
   def self.logger
-    @@logger ||= Logger.new(STDOUT)
+    @@logger ||= begin
+      STDOUT.sync = true
+      logger = Logger.new(STDOUT)
+      logger.sev_threshold = Logger::DEBUG
+    end
   end
 
   def initialize(host, port)
@@ -39,7 +43,8 @@ class SMSChatRoulette
   end
 
   def handle_incoming_sms(message)
-    SMSChatRoulette.logger.info "<--     #{message}"
+    SMSChatRoulette.logger.info "<--      message"
+    SMSChatRoulette.logger.debug "<--     #{message}"
 
     if COMMANDS.include? message.text.downcase
       handle_command(message)
@@ -54,7 +59,7 @@ class SMSChatRoulette
 
   def forward_message(message)
     match = matches.match(message.sender_recipient)
-    SMSChatRoulette.logger.info "Forwarding #{message} to #{match}"
+    SMSChatRoulette.logger.debug "Forwarding #{message} to #{match}"
     send_sms(match, message.text)
   end
 
@@ -75,10 +80,13 @@ class SMSChatRoulette
 
     notify_unsubscribed(number)
     notify_unmatched(old_match)
+
+    SMSChatRoulette.logger.info "Match deleted. #{matches.size / 2} matches currently."
+    SMSChatRoulette.logger.debug "Match deleted. #{matches.size / 2} matches currently."
   end
 
   def notify_unsubscribed(number)
-    send_sms(number, "You have been unsubscribed from the service.")
+    send_sms(number, "You have been unsubscribed from the service. To join again, send another SMS!")
   end
 
   def notify_unmatched(number)
@@ -92,7 +100,8 @@ class SMSChatRoulette
 
     if match_queue.size >= 2
       create_match
-      SMSChatRoulette.logger.info "Current matches: #{matches.size}"
+      SMSChatRoulette.logger.info "Match created. #{matches.size / 2} matches currently."
+      SMSChatRoulette.logger.debug "Match created. #{matches.size / 2} matches currently."
     end
   end
 
@@ -112,7 +121,8 @@ class SMSChatRoulette
 
   def send_sms(recipient, text)
     message = Message.new(recipient, text)
-    SMSChatRoulette.logger.info "    --> #{message}"
+    SMSChatRoulette.logger.info "     --> message"
+    SMSChatRoulette.logger.debug "    --> #{message}"
     socket.puts(message.to_json)
   end
 end
